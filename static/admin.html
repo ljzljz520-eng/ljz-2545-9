@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>后台管理 · 星空放映厅</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">◐</span>星空放映厅<em>BACK OFFICE</em></div>
+  <nav>
+    <a href="/">场次</a>
+    <a href="/admin" class="on">后台</a>
+    <a href="/design">设计说明</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="tabs" id="tabs">
+    <button data-tab="sessions" class="on">场次运营</button>
+    <button data-tab="films">片单</button>
+    <button data-tab="venues">场地</button>
+    <button data-tab="weather">天气预案</button>
+    <button data-tab="notify">通知中心</button>
+    <button data-tab="audit">审计日志</button>
+  </div>
+
+  <section class="panel on" id="panel-sessions">
+    <div class="form" id="createSessionForm">
+      <label>新场次</label>
+      <select id="csFilm"></select>
+      <select id="csVenue"></select>
+      <input type="datetime-local" id="csStart">
+      <input type="number" id="csCap" placeholder="容量(默认场地容量)" min="1" style="width:150px">
+      <button class="btn primary" id="csBtn">创建场次</button>
+    </div>
+    <div id="opPanel"></div>
+    <div id="sessionTable"></div>
+  </section>
+
+  <section class="panel" id="panel-films">
+    <div class="form">
+      <label>新影片</label>
+      <input id="fTitle" placeholder="片名" style="width:160px">
+      <input id="fDur" type="number" placeholder="时长(分)" style="width:100px">
+      <input id="fSyn" placeholder="简介" style="width:280px">
+      <input id="fPalette" type="color" value="#f5b942" title="主题色">
+      <button class="btn primary" id="fBtn">添加影片</button>
+    </div>
+    <div id="filmTable"></div>
+  </section>
+
+  <section class="panel" id="panel-venues">
+    <div class="form">
+      <label>新场地</label>
+      <input id="vName" placeholder="场地名" style="width:140px">
+      <input id="vLoc" placeholder="位置" style="width:200px">
+      <input id="vRows" type="number" placeholder="排" min="1" max="26" style="width:70px">
+      <input id="vCols" type="number" placeholder="列" min="1" style="width:70px">
+      <button class="btn primary" id="vBtn">添加场地</button>
+    </div>
+    <div id="venueTable"></div>
+  </section>
+
+  <section class="panel" id="panel-weather">
+    <div class="form">
+      <label>模拟天气数据</label>
+      <select id="wxSession"></select>
+      <input type="datetime-local" id="wxObserved">
+      <select id="wxRisk">
+        <option value="rain">rain 降雨 → 建议延期</option>
+        <option value="heavy_rain">heavy_rain 暴雨 → 建议取消</option>
+        <option value="gale">gale 大风 → 建议取消</option>
+        <option value="none">none 无风险</option>
+      </select>
+      <button class="btn" id="wxBtn">注入数据</button>
+      <span class="dim small">数据只生成「待决定」预案，确认后才改变公开状态</span>
+    </div>
+    <div id="wxMsg"></div>
+    <div id="planTable"></div>
+  </section>
+
+  <section class="panel" id="panel-notify">
+    <div class="form">
+      <button class="btn primary" id="drainBtn">投递待发送任务（本地模拟渠道）</button>
+      <span class="dim small" id="notifyStats"></span>
+    </div>
+    <h3 class="sec-title" style="font-size:1rem">任务队列</h3>
+    <div id="notifTable"></div>
+    <h3 class="sec-title" style="font-size:1rem">模拟渠道回执（mock_channel.log）</h3>
+    <div id="mockList"></div>
+  </section>
+
+  <section class="panel" id="panel-audit">
+    <div id="auditTable"></div>
+  </section>
+</main>
+
+<footer>后台所有变更携带 expected_version，过期写入返回 409 并提示刷新</footer>
+<script src="/admin.js"></script>
+</body>
+</html>

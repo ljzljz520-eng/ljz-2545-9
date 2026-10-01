@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-10-01T00:10:10",
+  "rounds": [
+    {
+      "strategy": "seat",
+      "rounds": 3,
+      "contenders": 8,
+      "winners": 3,
+      "elapsed_ms": 62.6
+    },
+    {
+      "strategy": "session",
+      "rounds": 3,
+      "contenders": 8,
+      "winners": 3,
+      "elapsed_ms": 32.8
+    }
+  ],
+  "conclusion": "两种策略均保证「最后席位只有一个赢家」。席位原子占用把冲突面收窄到单座（唯一部分索引 + BEGIN IMMEDIATE），全场次锁在应用层串行化整场写入；SQLite 单写者模型下吞吐接近，在行级锁数据库上席位级可并行不同座位。"
+}

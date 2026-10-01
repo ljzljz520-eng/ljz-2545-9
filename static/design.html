@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>设计说明 · 星空放映厅</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">◐</span>星空放映厅<em>DESIGN NOTES</em></div>
+  <nav>
+    <a href="/">场次</a>
+    <a href="/admin">后台</a>
+    <a href="/design" class="on">设计说明</a>
+  </nav>
+</header>
+
+<main class="doc">
+  <h1>设计说明</h1>
+  <p class="dim">星空放映厅 · 露天电影全栈排片系统 — 视觉系统、领域设计与并发工程说明。本页全部为原创排版。</p>
+
+  <h2>一、视觉概念：夜幕放映</h2>
+  <p>露天电影的核心意象是「一束光划破夜色」。整站以<strong>夜幕墨蓝</strong>为底，<strong>放映机琥珀</strong>为主强调色，
+  首屏用锥形渐变模拟放映机光束，背景星空由多层径向渐变纯 CSS 绘制，零图片素材。
+  业务秩序感由两枚隐喻承载：<strong>票根</strong>（场次卡片两侧的打孔缺口、回执的锯齿副券）与<strong>印章</strong>（状态徽章做 2° 倾斜的盖章处理），
+  让「改期 / 取消 / 满额」这类运营状态一眼可辨。</p>
+
+  <h3>色板</h3>
+  <div class="swatches">
+    <div class="swatch"><i style="background:#0b0f1d"></i><b>夜幕 Ink</b><span>#0B0F1D</span></div>
+    <div class="swatch"><i style="background:#111831"></i><b>幕布 Ink-2</b><span>#111831</span></div>
+    <div class="swatch"><i style="background:#f5b942"></i><b>放映机琥珀</b><span>#F5B942</span></div>
+    <div class="swatch"><i style="background:#f4efe4"></i><b>票根米白</b><span>#F4EFE4</span></div>
+    <div class="swatch"><i style="background:#e06c5a"></i><b>取消朱红</b><span>#E06C5A</span></div>
+    <div class="swatch"><i style="background:#b39ddb"></i><b>改期藕紫</b><span>#B39DDB</span></div>
+    <div class="swatch"><i style="background:#7fb3d5"></i><b>天气灰蓝</b><span>#7FB3D5</span></div>
+    <div class="swatch"><i style="background:#9ece6a"></i><b>售票草绿</b><span>#9ECE6A</span></div>
+  </div>
+
+  <h3>字阶与字体</h3>
+  <div class="type-scale">
+    <div style="font-size:2.4rem" class="serif">展示标题 / 衬线 2.4rem —— 夜幕落下，电影开场</div>
+    <div style="font-size:1.4rem" class="serif">节标题 / 衬线 1.4rem —— 近期场次</div>
+    <div style="font-size:1rem">正文 / 无衬线 1rem —— 滨江草坪 · 165 分钟</div>
+    <div class="mono" style="font-size:.86rem">等宽 0.86rem —— EV-20261001-001 · 19:30 · 确认序 #7</div>
+    <div class="mono" style="font-size:.64rem;letter-spacing:.18em">印章 0.64rem 字距 .18em —— 满额 FULL</div>
+  </div>
+  <p>片名与时间用衬线制造「海报感」；场次身份、时间、确认序一律等宽，保证运营扫读时数字对齐。</p>
+
+  <h3>栅格与组件</h3>
+  <ul>
+    <li>内容栏宽 1080px，卡片流 <code>repeat(auto-fill, minmax(320px,1fr))</code>，移动端单列。</li>
+    <li><strong>票根卡</strong>：左右打孔缺口用 <code>::before/::after</code> 圆形遮罩，底部虚线撕裂线分隔操作区。</li>
+    <li><strong>印章徽章</strong>：1.4px 描边 + 旋转 ±2°，改期用藕紫、取消用朱红、满额用琥珀、天气预案用虚线灰蓝（未决态）。</li>
+    <li><strong>座位图</strong>：顶部弧形「银幕」带琥珀辉光；座位五态（可选/我的占位/被锁定/已售/未开放）色彩分离。</li>
+    <li><strong>回执</strong>：页面唯一的米白区块，模拟纸质票根，右侧副券印斜纹。</li>
+  </ul>
+
+  <h2>二、架构</h2>
+  <pre class="diagram">
+浏览器（index / admin / design）
+  │  fetch JSON，序号+版本双重守卫，旧响应不覆盖
+  ▼
+Python 标准库 http.server（ThreadingHTTPServer）
+  ├─ 公开 API：场次列表 / 座位图 / 占位 / 确认 / 天气数据注入
+  ├─ 后台 API：片单·场地·场次 CRUD、改期、容量、冻结、预案决策、通知投递
+  └─ 静态页：/ /admin /design
+  ▼
+SQLite（WAL，busy_timeout=5s，外键开启）
+  films · venues · sessions · schedule_history · weather_plans
+  holds（占位记录）· reservations · notifications（待发送任务）· audit_log
+  ▼
+本地模拟渠道：data/mock_channel.log（JSONL，验收通知投递）</pre>
+
+  <h2>三、数据模型（SQL）</h2>
+  <table>
+    <tr><th>表</th><th>关键字段</th><th>约束与设计</th></tr>
+    <tr><td><code>sessions</code></td><td>public_code, start_time, original_start_time, capacity, status, booking_frozen, reschedule_count, version</td>
+      <td><strong>场次身份</strong>：public_code 全局唯一且终身不变；version 乐观并发；booking_frozen 实现改期过程的新报名约束</td></tr>
+    <tr><td><code>schedule_history</code></td><td>session_id, old_start, new_start, ticket_policy, reason</td>
+      <td>改期履历：改期 = 同一活动的新安排，历史可追溯</td></tr>
+    <tr><td><code>weather_plans</code></td><td>observed_at, risk, proposal, state(pending/confirmed/rejected/superseded), dedupe_key</td>
+      <td><strong>天气预案</strong>：数据只生成 pending；observed_at 用于识别迟到更新；dedupe_key 幂等</td></tr>
+    <tr><td><code>holds</code></td><td>seat_label, state(active/consumed/expired/released), idempotency_key, expires_at</td>
+      <td><strong>占位记录</strong>：部分唯一索引 <code>(session_id, seat_label) WHERE state='active'</code> 是席位原子占用的根基；expires_at 落实预留超时</td></tr>
+    <tr><td><code>reservations</code></td><td>state(confirmed/displaced/rebook_pending/cancelled), confirm_seq, idempotency_key</td>
+      <td>confirm_seq 记录确认顺序，缩减容量时按序保留；idempotency_key 唯一保证重复回执不产生第二张票</td></tr>
+    <tr><td><code>notifications</code></td><td>kind, recipient, state(pending/sent), dedupe_key, attempts</td>
+      <td>通知中心：先生成待发送任务，再由投递器写入本地模拟渠道；dedupe_key 防重复任务</td></tr>
+  </table>
+
+  <h2>四、状态机</h2>
+  <h3>场次</h3>
+  <pre class="diagram">scheduled ──改期──▶ scheduled(时间已换, reschedule_count+1, booking_frozen=1) ──解冻──▶ 恢复报名
+scheduled ──容量满──▶ full（派生态：confirmed ≥ capacity，列表直接显示「满额」）
+scheduled ──取消(人工/天气预案确认)──▶ cancelled（终态，迟到天气更新不再改变）</pre>
+  <h3>座位生命周期</h3>
+  <pre class="diagram">free ──占位──▶ held(active, ≤120s) ──确认──▶ taken（hold→consumed，reservation→confirmed）
+held ──超时/放弃──▶ expired/released ──▶ free
+confirmed ──缩减容量溢出──▶ displaced（列入待处置名单，保留 confirm_seq 证据）
+confirmed ──改期 rebook 政策──▶ rebook_pending（座位释放，等待观众重订）</pre>
+  <h3>天气预案（双人确认）</h3>
+  <pre class="diagram">天气数据注入 ──▶ pending（仅内部可见，公开状态不变）
+pending ──运营确认──▶ confirmed → 执行 取消场次 / 顺延（老票迁移）
+pending ──运营驳回──▶ rejected
+任何迟到/重复数据 ──▶ superseded（只记录，不生效）</pre>
+
+  <h2>五、并发设计：全场次锁 vs 席位原子占用</h2>
+  <table>
+    <tr><th></th><th>全场次锁（BOOKING_STRATEGY=session）</th><th>席位原子占用（BOOKING_STRATEGY=seat，默认）</th></tr>
+    <tr><td>机制</td><td>应用层 per-session 互斥锁包住「检查+写入」</td><td><code>BEGIN IMMEDIATE</code> + 部分唯一索引，冲突面收窄到单个座位</td></tr>
+    <tr><td>正确性</td><td>强：整场串行</td><td>强：唯一索引兜底，最后席位只有一个赢家</td></tr>
+    <tr><td>并行度</td><td>同场次全部串行，不同座位也互斥</td><td>不同座位可并行（行级锁数据库上优势明显）</td></tr>
+    <tr><td>失败面</td><td>锁粒度过大，热点场次排队</td><td>仅同座冲突者收到 409 SEAT_TAKEN</td></tr>
+    <tr><td>适用</td><td>需要整场一致快照的操作（如批量换座）</td><td>在线抢票主路径</td></tr>
+  </table>
+  <p>本系统默认席位原子占用；占位与确认都在单条 <code>BEGIN IMMEDIATE</code> 事务内完成「复检 + 写入」，
+  SQLite 单写者保证原子性，唯一部分索引保证语义。以下为验收测试实测（8 线程抢最后 1 席 × 3 轮）：</p>
+  <table id="benchTable">
+    <tr><th>策略</th><th>轮次</th><th>每轮竞争者</th><th>获胜占位总数（应=轮次）</th><th>总耗时</th></tr>
+    <tr><td colspan="5" class="dim">尚未运行测试 —— 执行 <code>python3 tests/test_all.py</code> 后自动写入实测数据</td></tr>
+  </table>
+  <p class="dim small" id="benchNote"></p>
+
+  <h2>六、关键政策</h2>
+  <h3>1. 改期 = 同一活动的新安排</h3>
+  <p>改期只更新 <code>sessions.start_time/end_time</code> 并追加 <code>schedule_history</code>，<code>id</code> 与 <code>public_code</code> 不变，
+  原预约永远指向同一场次，不会失联。旧票由显式政策处理：<code>migrate</code> 自动迁移并通知；<code>rebook</code> 转「待重订」并释放座位。
+  改期提交即置 <code>booking_frozen=1</code>，新报名返回 <code>409 BOOKING_FROZEN</code>，运营确认通知发出后手动解冻。</p>
+  <h3>2. 缩减容量：保序、公示、不随机</h3>
+  <p>按 <code>confirm_seq</code> 升序保留先确认者，溢出者置 <code>displaced</code> 并在接口与后台名单中逐人列出（含确认序、座位），
+  同时生成 <code>seat_displaced</code> 通知任务。全程无随机撤销。</p>
+  <h3>3. 天气双人确认</h3>
+  <p>天气数据注入只创建 <code>pending</code> 预案（公开状态不变）；运营在后台「确认取消 / 确认顺延 / 驳回」后才改变公开状态。
+  已取消或已有更晚决定后到达的迟到更新记为 <code>superseded</code>，仅留档。</p>
+  <h3>4. 预留超时</h3>
+  <p>占位默认 120 秒（<code>HOLD_TTL_SECONDS</code> 可调，请求可带 <code>ttl_seconds</code>），读路径惰性清扫；
+  超时确认返回 <code>410 HOLD_EXPIRED</code>，座位立即回到可选池。</p>
+  <h3>5. 幂等与重复回执</h3>
+  <p>占位、确认均以 <code>idempotency_key</code> 为唯一键：网络重试返回原记录；重复确认返回同一张票（HTTP 200 + idempotent），
+  通知任务以 <code>dedupe_key</code> 去重，投递器可安全重跑。</p>
+  <h3>6. 版本与旧响应</h3>
+  <p>服务端：所有变更接受 <code>expected_version</code>，不符返回 <code>409 STALE_VERSION</code> 与当前版本号。
+  客户端：每次请求带单调序号，乱序到达的旧响应直接丢弃；再按 <code>version</code> 比较，低版本数据不渲染 —— 网页状态永不被旧响应覆盖。</p>
+
+  <h2>七、测试矩阵（tests/test_all.py）</h2>
+  <table>
+    <tr><th>用例</th><th>方法</th><th>断言</th></tr>
+    <tr><td>最后席位竞争</td><td>8 线程并发占位同一座位（两种锁策略各 3 轮）</td><td>恰好 1 个 201，其余 409；确认仅 1 张票</td></tr>
+    <tr><td>重复回执</td><td>同一 idempotency_key 重复确认</td><td>返回同一 reservation id；确认通知仅 1 条</td></tr>
+    <tr><td>预留超时</td><td>ttl=1s 占位后 sleep 再确认</td><td>确认 410；座位回到 free</td></tr>
+    <tr><td>改期身份</td><td>改期前后比较 id / public_code；冻结期尝试报名</td><td>身份不变；老票按政策迁移；冻结期 409，解冻后恢复</td></tr>
+    <tr><td>容量缩减</td><td>5 人按序确认后缩到 3</td><td>待处置名单 = 确认序最末 2 人，状态 displaced，通知 2 条</td></tr>
+    <tr><td>场地冲突</td><td>同场地重叠时段建场 / 改期撞车</td><td>均 409 VENUE_CONFLICT 并指明冲突场次</td></tr>
+    <tr><td>预案取消后迟到更新</td><td>确认取消 → 注入更早/更晚天气数据</td><td>公开状态保持 cancelled；迟到数据记 superseded</td></tr>
+    <tr><td>驳回后迟到更新</td><td>驳回预案 → 注入更早观测数据</td><td>superseded，场次仍售票</td></tr>
+    <tr><td>通知中心</td><td>投递 → 查模拟渠道 → 重复投递</td><td>mock_channel.log 有回执；重复 drain 投递 0 条</td></tr>
+    <tr><td>版本守卫</td><td>携带过期 expected_version 改期</td><td>409 STALE_VERSION 且返回当前版本</td></tr>
+  </table>
+
+  <h2>八、运行</h2>
+  <pre class="diagram">python3 server.py --port 8000        # 启动（默认席位原子占用）
+BOOKING_STRATEGY=session python3 server.py   # 切换全场次锁对比
+python3 tests/test_all.py            # 验收测试（自动起 3 个临时实例）</pre>
+  <p class="dim">前台 <a href="/">/</a> · 后台 <a href="/admin">/admin</a> · 本页 <a href="/design">/design</a></p>
+</main>
+
+<footer>星空放映厅 · 设计说明 — 夜幕放映视觉系统 v1.0</footer>
+<script>
+fetch('/strategy_report.json').then(r => r.ok ? r.json() : null).then(rep => {
+  if (!rep) return;
+  const t = document.querySelector('#benchTable');
+  t.innerHTML = '<tr><th>策略</th><th>轮次</th><th>每轮竞争者</th><th>获胜占位总数（应=轮次）</th><th>总耗时</th></tr>' +
+    rep.rounds.map(r => `<tr><td>${r.strategy === 'seat' ? '席位原子占用' : '全场次锁'}</td>
+      <td>${r.rounds}</td><td>${r.contenders}</td><td>${r.winners} ✓</td><td>${r.elapsed_ms} ms</td></tr>`).join('');
+  document.querySelector('#benchNote').textContent = '实测于 ' + rep.generated_at + '：' + rep.conclusion;
+}).catch(() => {});
+</script>
+</body>
+</html>

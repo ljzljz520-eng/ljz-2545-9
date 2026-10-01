@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>星空放映厅 · 露天电影排片</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">◐</span>星空放映厅<em>OPEN AIR CINEMA</em></div>
+  <nav>
+    <a href="/" class="on">场次</a>
+    <a href="/admin">后台</a>
+    <a href="/design">设计说明</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="beam"></div>
+  <h1>夜幕落下，<br><em>电影</em>开场。</h1>
+  <p>露天放映 · 在线选座 · 天气预案护航</p>
+  <div class="hero-stats" id="heroStats">加载中…</div>
+</section>
+
+<main class="wrap">
+  <h2 class="sec-title">近期场次 <span class="mono" id="syncInfo"></span></h2>
+  <div id="sessionList" class="cards"></div>
+</main>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-box">
+    <button class="modal-x" id="modalClose" aria-label="关闭">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<footer>星空放映厅 · 露天电影排片系统 — 改期不换身份 · 预案双人确认 · 席位原子占用</footer>
+<script src="/app.js"></script>
+</body>
+</html>
