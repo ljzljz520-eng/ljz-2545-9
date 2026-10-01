@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计说明 · 星空放映厅</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<header class="marquee">
+  <div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>
+  <a class="brand" href="/">星空放映厅<small>STARLIT CINEMA · DESIGN DOC</small></a>
+  <nav class="nav">
+    <a href="/">场次</a>
+    <a href="/admin.html">运营后台</a>
+    <a href="/design.html" class="active">设计说明</a>
+  </nav>
+</header>
+<main class="doc">
+  <section class="hero">
+    <div class="tonight">Design Rationale · 原创排版与工程说明</div>
+    <h1>夜幕、票根与<em>一束光</em></h1>
+    <p>本页记录视觉系统的原创决策与后端一致性设计：改期身份、容量处置、天气预案、席位并发与通知幂等。</p>
+  </section>
+
+  <h2>一、视觉概念</h2>
+  <p>露天电影的核心体验是「黑暗中的一束光」。界面因此以深夜蓝为天幕，琥珀色为放映机的暖光，
+     场次卡片设计为可撕下的<strong>票根</strong>——左侧深色票联印日期，与右侧票面之间以虚线压齿孔分隔；
+     取消的场次盖上褪色的 CANCELLED 印章，如同被窗口盖了作废章的纸质票。</p>
+  <div class="swatch-row">
+    <div class="swatch"><i style="background:#0e1526"></i><span>--ink 天幕 #0E1526</span></div>
+    <div class="swatch"><i style="background:#f7f1e3"></i><span>--paper 票根 #F7F1E3</span></div>
+    <div class="swatch"><i style="background:#ffb43a"></i><span>--amber 放映光 #FFB43A</span></div>
+    <div class="swatch"><i style="background:#e5484d"></i><span>--red 作废章 #E5484D</span></div>
+    <div class="swatch"><i style="background:#46a46c"></i><span>--green 可订 #46A46C</span></div>
+    <div class="swatch"><i style="background:#4fb3a9"></i><span>--teal 预案 #4FB3A9</span></div>
+  </div>
+
+  <h3>字体排印</h3>
+  <p>三套字族分工明确，全部使用系统字体栈，离线可用：</p>
+  <ul>
+    <li><strong>衬线展示体</strong>（Songti SC / Noto Serif / Georgia）：片名、标题——电影海报的书卷气；</li>
+    <li><strong>等宽体</strong>（SF Mono / ui-monospace）：时间、票号、座位号——像放映机上的计数器，数字对齐便于扫读；</li>
+    <li><strong>无衬线正文</strong>（PingFang / Segoe UI）：说明性文字，保证小字号可读性。</li>
+  </ul>
+  <div class="type-spec">
+    <div style="font-size:var(--step-3);font-family:var(--serif)">Step 3 · 夏夜行车 2.1–3.2rem</div>
+    <div style="font-size:var(--step-2);font-family:var(--serif)">Step 2 · 河口往事 1.55–2.1rem</div>
+    <div style="font-size:var(--step-1)">Step 1 · 纸飞机电台 1.2–1.45rem</div>
+    <div style="font-size:var(--step-0)">Step 0 · 正文 0.95–1.05rem（1.65 行高）</div>
+    <div style="font-size:var(--step--1);font-family:var(--mono)">Step -1 · 辅助/等宽 0.78–0.86rem</div>
+  </div>
+  <p>字阶按 1.25–1.33 比例以 <code>clamp()</code> 流式缩放；页头灯泡串以 2.4s 交错呼吸，是唯一循环动画，克制使用动效。</p>
+
+  <h3>布局</h3>
+  <ul>
+    <li>票根卡片：<code>86px 票联 + 自适应票面</code> 的双栏网格，悬停上浮 3px 模拟从票夹中抽出；</li>
+    <li>座位图：排号 + 圆角席位，银幕以一道下弯的琥珀光弧表现（<code>border-radius 50%</code> + 投影）；</li>
+    <li>状态即信息：改期（原时间→新时间）、取消（褪色+印章）、满额（红色余票条）在列表首屏直接可读，无需点进详情。</li>
+  </ul>
+
+  <h2>二、领域设计：改期不是重建</h2>
+  <p>改期被建模为<strong>同一活动的新排期版本</strong>：<code>screenings.id</code> 终身不变，
+     每次改期向 <code>schedule_revisions</code> 追加一行并前移 <code>current_revision_id</code> 指针。
+     票永远外键指向 <code>screenings.id</code>，因此无论改期多少次，原预约都不会失联；
+     查票接口始终返回「当前排期」时间。</p>
+  <pre>screenings (id 恒定, current_revision_id ──┐
+  version 乐观锁, capacity, taken_count)    │
+schedule_revisions (screening_id, rev_no, ◄─┘
+  starts_at, ends_at, ticket_policy)
+tickets (screening_id ──► 活动身份, revision_id ──► 购票/迁移到的版本)</pre>
+  <p>旧票处置由<strong>显式政策</strong>决定，逐票生成通知任务：</p>
+  <table class="compare">
+    <tr><th>政策</th><th>行为</th><th>适用</th></tr>
+    <tr><td><code>migrate_all</code></td><td>全部票自动指向新排期，状态保持 confirmed</td><td>时间微调，观众大概率接受</td></tr>
+    <tr><td><code>opt_in</code></td><td>票转 migrate_pending，观众在页面确认/退票；席位继续为其保留</td><td>时间变化大，需观众同意</td></tr>
+    <tr><td><code>void_all</code></td><td>全部作废、释放席位、通知退款重报</td><td>活动性质改变</td></tr>
+  </table>
+
+  <h2>三、容量缩减：保留顺序，明示处置</h2>
+  <p>每张票确认时获得场次内单调递增的 <code>confirm_seq</code>。缩减容量时按 <code>confirm_seq ASC</code>
+     保留先到者，超出者进入 <code>displaced</code>（席位释放、生成处置通知），接口把<strong>需处置人群名单</strong>
+     按顺序返回给运营——绝不随机撤销。扩容时按同一顺序尝试恢复 displaced 票，且仅在原座位仍空闲时恢复，不挤占他人。</p>
+
+  <h2>四、天气预案：数据不直接改公开状态</h2>
+  <pre>观测注入 ──严重?──► 匹配场次(场地+时间窗) ──► 有 pending 预案? ──是──► 更新触发数据(仍待决定)
+     │                                      └──否──► 已有决定? ──否──► 新建 pending_decision 预案
+     │                                                  └──是──► 观测时间 ≤ 决定时间? ──是──► ignored_stale
+     ▼ 否                                                            └──否──► 新建 pending(新证据)
+  仅记录观测
+运营 decide(approve) ──► 才改变 screenings.status（公开状态）＋ 作废票 ＋ 通知</pre>
+  <p>迟到的观测（<code>observed_at ≤ decided_at</code>）不会推翻既有决定；场次已终态时后续观测记为
+     <code>ignored_terminal</code>。所有忽略都写入 <code>weather_events</code> 审计表，可在后台查看。</p>
+
+  <h2>五、席位并发：全场次锁 vs 席位原子占用</h2>
+  <p>系统实现了两种可切换策略（环境变量 <code>BOOKING_STRATEGY</code>），共享同一套 SQL 不变量：</p>
+  <table class="compare">
+    <tr><th>维度</th><th>全场次锁 screening_lock</th><th>席位原子占用 atomic（默认）</th></tr>
+    <tr><td>互斥粒度</td><td>整个场次：进程内互斥锁 + SELECT 校验后插入</td><td>单个席位：seat_occupancy 主键冲突即失败</td></tr>
+    <tr><td>容量控制</td><td>锁内读 taken_count 判断</td><td>条件 UPDATE 原子递增（taken_count &lt; capacity 才 +1）</td></tr>
+    <tr><td>竞争失败影响</td><td>同场次所有下单互斥，失败波及不相干席位</td><td>仅冲突席位失败，其余席位并行无阻</td></tr>
+    <tr><td>吞吐</td><td>低（串行），热点场次明显</td><td>高，失败率与席位热度成正比而非场次热度</td></tr>
+    <tr><td>可迁移性</td><td>依赖应用层锁，多实例部署需分布式锁</td><td>纯数据库约束，可直接平移到 Postgres 行级唯一索引</td></tr>
+    <tr><td>适用</td><td>需要跨行不变量（如“每场最多 N 张联票”）时更直观</td><td>常规选座预订，配合唯一索引即可证明正确</td></tr>
+  </table>
+  <p>正确性不依赖策略选择：<code>seat_occupancy(screening_id, seat_id)</code> 主键是席位占用的唯一裁决者，
+     占位与出票共用此表（occupant_type = hold / ticket）。测试在两种策略下各跑一遍「最后席位竞争」：
+     N 个并发请求抢同一座位，恰好 1 个成功。</p>
+
+  <h3>预留超时与改期中的报名约束</h3>
+  <ul>
+    <li>占位写入 <code>seat_holds</code>（含 <code>expires_at</code>），读取路径惰性清扫 + 服务端定时清扫回收席位与计数；</li>
+    <li>改期事务开始时将 <code>sale_state</code> 置为 paused，结束恢复 open；暂停期间新报名一律 409。
+        由于改期是单事务，外部只会看到原子切换；运营也可手动暂停售票（如评估改期方案时）；</li>
+    <li>确认出票要求占位仍 active 且场次 scheduled——占位超时后再确认返回 409。</li>
+  </ul>
+
+  <h2>六、通知中心与幂等</h2>
+  <ul>
+    <li>通知任务以 <code>idempotency_key</code>（类型:场次:票）去重，重复改期/取消不会产生重复任务；</li>
+    <li>派发走本地模拟渠道：写入 <code>mock_outbox</code>（task_id 唯一），后台「模拟渠道」页可查看发件箱并手动回执；</li>
+    <li>回执以 <code>UNIQUE(task_id, receipt_token)</code> 幂等：重复回执返回 <code>duplicate:true</code>，不重复登记、不重复改状态。</li>
+  </ul>
+
+  <h2>七、版本与防旧响应覆盖</h2>
+  <ul>
+    <li><strong>服务端</strong>：<code>screenings.version</code> 乐观锁，管理端写操作须携带读到的版本号，失配返回
+        <code>409 VERSION_CONFLICT</code> 与当前版本，前端收到后自动刷新重试提示；</li>
+    <li><strong>浏览器</strong>：<code>js/guard.js</code> 为每次请求发递增令牌，响应到达时若已有更新响应被应用则丢弃；
+        行级再按 version 防回退——乱序到达的旧响应永远不会覆盖页面上的新状态。</li>
+  </ul>
+
+  <h2>八、测试矩阵</h2>
+  <pre>tests/test.js（node --test，内存 SQLite，双策略各跑一轮）
+├─ 最后席位竞争      8 并发抢 1 座 ⇒ 恰好 1 成功，占用表仅 1 行
+├─ 预案取消后迟到更新  批准取消 ⇒ 迟到观测不改状态；驳回 ⇒ 陈旧观测被忽略
+├─ 场地冲突          同场地时间窗重叠 ⇒ 409；改期撞场同样拦截
+├─ 重复回执          同一 receipt_token 投递两次 ⇒ 仅 1 条记录
+├─ 改期不失联        三种政策下票始终指向同一 screening_id
+├─ 容量缩减          5 票缩到 2 ⇒ 确认序 #1#2 保留，#3-5 进处置名单
+├─ 预留超时          过期占位自动回收；过期确认 ⇒ 409
+├─ 改期中报名约束     sale_state=paused ⇒ 报名 409
+└─ 版本防覆盖        旧 version 写入 ⇒ 409；guard 单测覆盖乱序响应</pre>
+</main>
+<footer>STARLIT CINEMA · 设计与工程说明 · 原创排版</footer>
+</body>
+</html>

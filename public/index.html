@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星空放映厅 · 露天电影排片</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<header class="marquee">
+  <div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>
+  <a class="brand" href="/">星空放映厅<small>STARLIT CINEMA</small></a>
+  <nav class="nav">
+    <a href="/" class="active">场次</a>
+    <a href="/admin.html">运营后台</a>
+    <a href="/design.html">设计说明</a>
+  </nav>
+</header>
+<main>
+  <section class="hero">
+    <div class="tonight">Open-air screenings · 晴夜限定</div>
+    <h1>把电影搬到<em>星空</em>下面</h1>
+    <p>草坪、晚风与一束放映机的光。改期、取消与满额信息在此实时公示；天气异动时，预案须经运营确认才会改变场次状态。</p>
+  </section>
+  <div class="list-head">
+    <h2>近期场次</h2>
+    <div class="chips" id="chips">
+      <button class="chip on" data-f="all">全部</button>
+      <button class="chip" data-f="open">可订</button>
+      <button class="chip" data-f="rescheduled">已改期</button>
+      <button class="chip" data-f="cancelled">已取消</button>
+      <button class="chip" data-f="full">满额</button>
+    </div>
+    <span class="dim mono" id="sync-note" style="margin-left:auto;font-size:.72rem"></span>
+  </div>
+  <section class="stub-grid" id="list"></section>
+</main>
+<footer>STARLIT CINEMA · 本地演示环境 · <span>席位原子占用策略</span> <span id="strategy"></span></footer>
+<script src="/js/guard.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/index.js"></script>
+</body>
+</html>

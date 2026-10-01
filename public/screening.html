@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>场次详情 · 星空放映厅</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<header class="marquee">
+  <div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>
+  <a class="brand" href="/">星空放映厅<small>STARLIT CINEMA</small></a>
+  <nav class="nav">
+    <a href="/">场次</a>
+    <a href="/admin.html">运营后台</a>
+    <a href="/design.html">设计说明</a>
+  </nav>
+</header>
+<main>
+  <div id="detail"></div>
+  <div class="screen-glow">银 幕 · SCREEN</div>
+  <div class="seatmap" id="seatmap"></div>
+  <div class="legend">
+    <span><i style="background:var(--ink-3);border:1px solid var(--line)"></i>可选</span>
+    <span><i style="background:#6b5a2a"></i>占位中</span>
+    <span><i style="background:#3a2c33"></i>已售出</span>
+    <span><i style="background:var(--amber)"></i>我的选择</span>
+  </div>
+
+  <section class="panel" id="hold-panel" hidden>
+    <h3>预留席位 <span class="mono dim" id="hold-seat"></span></h3>
+    <div class="form-row">
+      <div class="field"><label>姓名</label><input id="f-name" placeholder="观众姓名"></div>
+      <div class="field"><label>联系方式（接收通知）</label><input id="f-contact" placeholder="手机 / 邮箱"></div>
+    </div>
+    <button class="btn" id="btn-hold">占位（预留 5 分钟）</button>
+    <span class="dim mono" style="margin-left:.8rem;font-size:.75rem">占位写入 SQL，超时自动释放</span>
+  </section>
+
+  <section class="panel" id="confirm-panel" hidden>
+    <h3>占位成功，请在倒计时结束前确认</h3>
+    <p class="countdown" id="countdown">05:00</p>
+    <p class="dim" style="font-size:.85rem">占位号 <span class="mono" id="hold-id"></span> · 超时未确认将自动释放席位</p>
+    <div style="margin-top:.8rem;display:flex;gap:.6rem">
+      <button class="btn" id="btn-confirm">确认购票</button>
+      <button class="btn ghost" id="btn-release">放弃占位</button>
+    </div>
+  </section>
+
+  <section class="panel" id="ticket-panel" hidden>
+    <h3>🎟 票根</h3>
+    <div id="ticket-view"></div>
+  </section>
+
+  <section class="panel">
+    <h3>查票 / 改期确认</h3>
+    <div class="form-row">
+      <div class="field"><label>票号（TK- 开头）</label><input id="f-ticket" placeholder="TK-XXXXXXXXXXXX"></div>
+    </div>
+    <button class="btn ghost" id="btn-lookup">查询</button>
+    <div id="lookup-view" style="margin-top:1rem"></div>
+  </section>
+</main>
+<footer>STARLIT CINEMA · 席位原子占用 · 预留超时自动回收</footer>
+<script src="/js/guard.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/screening.js"></script>
+</body>
+</html>

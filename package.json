@@ -1,0 +1,15 @@
+{
+  "name": "starlit-cinema",
+  "version": "1.0.0",
+  "description": "星空放映厅 —— 露天电影全栈排片网站（排片/预约/天气预案/通知中心）",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/",
+    "seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  },
+  "license": "MIT"
+}

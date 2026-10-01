@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>运营后台 · 星空放映厅</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<header class="marquee">
+  <div class="bulbs"><i></i><i></i><i></i><i></i><i></i></div>
+  <a class="brand" href="/">星空放映厅<small>STARLIT CINEMA · OPS</small></a>
+  <nav class="nav">
+    <a href="/">场次</a>
+    <a href="/admin.html" class="active">运营后台</a>
+    <a href="/design.html">设计说明</a>
+  </nav>
+</header>
+<main>
+  <div class="panel" style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">
+    <span class="mono dim" style="font-size:.8rem">管理员令牌</span>
+    <input id="adm-token" class="mono" style="background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:.4rem .7rem;font-size:.8rem" placeholder="dev-admin-token">
+    <button class="btn small ghost" id="btn-token">保存</button>
+    <span class="dim" style="font-size:.75rem">本地演示默认 dev-admin-token</span>
+  </div>
+
+  <div class="tabs">
+    <button data-tab="screenings" class="on">场次排期</button>
+    <button data-tab="catalog">片单与场地</button>
+    <button data-tab="weather">天气预案 <span id="plan-count"></span></button>
+    <button data-tab="notify">通知中心 <span id="task-count"></span></button>
+    <button data-tab="mock">模拟渠道</button>
+  </div>
+
+  <section id="tab-screenings">
+    <div class="panel">
+      <h3>新建场次</h3>
+      <div class="form-row">
+        <div class="field"><label>影片</label><select id="ns-film"></select></div>
+        <div class="field"><label>场地</label><select id="ns-venue"></select></div>
+        <div class="field"><label>开始</label><input id="ns-starts" placeholder="2026-10-01T19:30"></div>
+        <div class="field"><label>结束</label><input id="ns-ends" placeholder="2026-10-01T21:30"></div>
+      </div>
+      <button class="btn" id="btn-ns">创建（自动校验场地冲突）</button>
+      <span class="mono dim" id="ns-msg" style="margin-left:.8rem;font-size:.75rem"></span>
+    </div>
+    <div class="panel">
+      <h3>场次列表 <span class="dim mono" style="font-size:.7rem">改期=追加排期版本，活动身份不变</span></h3>
+      <table class="data" id="tbl-screenings"></table>
+    </div>
+    <div class="panel" id="panel-ops" hidden>
+      <h3>场次操作：<span class="mono" id="ops-id"></span> <span class="tag" id="ops-ver"></span></h3>
+      <div class="tabs" style="margin-top:.4rem">
+        <button data-op="reschedule" class="on">改期</button>
+        <button data-op="capacity">容量调整</button>
+        <button data-op="cancel">取消</button>
+        <button data-op="tickets">票与占位</button>
+      </div>
+      <div id="op-reschedule">
+        <p class="dim" style="font-size:.8rem">改期是同一活动的新安排：旧票按政策处理，绝不重新生成活动导致预约失联。</p>
+        <div class="form-row">
+          <div class="field"><label>新开始</label><input id="rs-starts" placeholder="2026-10-02T21:00"></div>
+          <div class="field"><label>新结束</label><input id="rs-ends" placeholder="2026-10-02T23:00"></div>
+          <div class="field"><label>原因</label><input id="rs-reason" placeholder="如：设备检修 / 天气延期"></div>
+        </div>
+        <div class="field"><label>旧票政策</label>
+          <select id="rs-policy">
+            <option value="migrate_all">整体迁移 —— 所有票自动转到新时间</option>
+            <option value="opt_in">观众确认 —— 票转“待确认迁移”，观众接受才算数</option>
+            <option value="void_all">全部作废 —— 释放席位，通知退款重报</option>
+          </select>
+        </div>
+        <button class="btn" id="btn-reschedule">执行改期</button>
+        <span class="mono dim" id="rs-msg" style="margin-left:.8rem;font-size:.75rem"></span>
+      </div>
+      <div id="op-capacity" hidden>
+        <p class="dim" style="font-size:.8rem">缩减容量按确认顺序（confirm_seq）保留先到者，超出者进入“需处置名单”，绝不随机撤销。</p>
+        <div class="form-row">
+          <div class="field"><label>新容量</label><input id="cap-value" type="number" min="0"></div>
+        </div>
+        <button class="btn" id="btn-capacity">执行调整</button>
+        <div id="cap-result" style="margin-top:.8rem"></div>
+      </div>
+      <div id="op-cancel" hidden>
+        <div class="form-row"><div class="field"><label>取消原因</label><input id="cancel-reason" placeholder="manual"></div></div>
+        <button class="btn danger" id="btn-cancel">取消场次（全部票作废并通知）</button>
+      </div>
+      <div id="op-tickets" hidden>
+        <table class="data" id="tbl-tickets"></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-catalog" hidden>
+    <div class="panel">
+      <h3>新增影片</h3>
+      <div class="form-row">
+        <div class="field"><label>片名</label><input id="f-title"></div>
+        <div class="field"><label>导演</label><input id="f-director"></div>
+        <div class="field"><label>时长(分钟)</label><input id="f-duration" type="number" value="100"></div>
+      </div>
+      <button class="btn" id="btn-film">添加影片</button>
+    </div>
+    <div class="panel">
+      <h3>新增场地（自动生成座位矩阵）</h3>
+      <div class="form-row">
+        <div class="field"><label>名称</label><input id="v-name"></div>
+        <div class="field"><label>排数</label><input id="v-rows" type="number" value="4"></div>
+        <div class="field"><label>每排座位</label><input id="v-cols" type="number" value="10"></div>
+      </div>
+      <button class="btn" id="btn-venue">添加场地</button>
+    </div>
+    <div class="panel"><h3>现有资源</h3><div id="catalog-list"></div></div>
+  </section>
+
+  <section id="tab-weather" hidden>
+    <div class="panel">
+      <h3>注入天气观测（模拟数据源）</h3>
+      <p class="dim" style="font-size:.8rem">恶劣天气只会把预案推到「待决定」；公开状态只有运营确认后才会改变。迟到/陈旧观测会被记录并忽略。</p>
+      <div class="form-row">
+        <div class="field"><label>场地</label><select id="w-venue"></select></div>
+        <div class="field"><label>观测时间</label><input id="w-at" placeholder="2026-10-01T18:00"></div>
+        <div class="field"><label>天气</label>
+          <select id="w-cond"><option value="clear">晴</option><option value="rain">降雨</option><option value="storm">雷暴</option><option value="wind">大风</option></select>
+        </div>
+        <div class="field"><label>雨量 mm</label><input id="w-rain" type="number" value="0"></div>
+        <div class="field"><label>风速 km/h</label><input id="w-wind" type="number" value="0"></div>
+      </div>
+      <button class="btn" id="btn-weather">注入观测</button>
+      <span class="mono dim" id="w-msg" style="margin-left:.8rem;font-size:.75rem"></span>
+    </div>
+    <div class="panel"><h3>待决定预案</h3><table class="data" id="tbl-plans"></table></div>
+    <div class="panel"><h3>天气处置审计（含被忽略的迟到更新）</h3><table class="data" id="tbl-wevents"></table></div>
+  </section>
+
+  <section id="tab-notify" hidden>
+    <div class="panel">
+      <h3>待发送任务</h3>
+      <p class="dim" style="font-size:.8rem">任务以幂等键去重；派发走本地模拟渠道（写入 mock_outbox）。</p>
+      <button class="btn" id="btn-dispatch">派发全部待发送</button>
+      <span class="mono dim" id="disp-msg" style="margin-left:.8rem;font-size:.75rem"></span>
+      <table class="data" id="tbl-tasks" style="margin-top:.8rem"></table>
+    </div>
+  </section>
+
+  <section id="tab-mock" hidden>
+    <div class="panel">
+      <h3>模拟渠道发件箱（local_mock）</h3>
+      <p class="dim" style="font-size:.8rem">点击「回执」模拟渠道送达回报；重复回执会被幂等去重（可多点几次验证）。</p>
+      <table class="data" id="tbl-outbox"></table>
+    </div>
+    <div class="panel"><h3>回执记录</h3><table class="data" id="tbl-receipts"></table></div>
+  </section>
+</main>
+<footer>STARLIT CINEMA · OPS CONSOLE</footer>
+<script src="/js/guard.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>
